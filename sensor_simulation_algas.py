@@ -70,7 +70,7 @@ def gerar_dados(qtd_dados):
             q.put(leitura)
     
     q = queue.Queue()
-    num_threads = min(10, qtd_dados // 1000 + 1)
+    num_threads = min(1, qtd_dados // 100 + 1)
     threads = []
 
     for _ in range(num_threads):
@@ -109,7 +109,7 @@ def gerar_graficos(desempenho):
     plt.plot(qtd_dados, tempos_salvamento, marker='s', linestyle='dashed', color='red', label="Tempo de Salvamento")
     plt.xlabel("Quantidade de Dados")
     plt.ylabel("Tempo (s)")
-    plt.title("Desempenho da Geração e Salvamento")
+    plt.title("Desempenho da Execução")
     plt.xscale("log")
     plt.legend()
 
@@ -134,39 +134,28 @@ def gerar_graficos(desempenho):
 
 def iniciar_teste():
     tracemalloc.start()
-    ranges = [
-        10,
-        100,
-        1000,
-        10000,
-        100000,
-        1000000,
-        3000000
-    ]
+    ranges = [10, 100, 1000, 10000, 100000, 1000000, 1000000, 3000000]
     desempenho = []
     
     for qtd_dados in ranges:
         print(f"\n🔄 Gerando {qtd_dados} dados...")
-
         inicio_geracao = time.time()
         dados = gerar_dados(qtd_dados)
         fim_geracao = time.time()
         
         print(f"💾 Salvando {qtd_dados} dados no banco...")
-        
         inicio_salvamento = time.time()
         salvar_no_banco(dados)
         fim_salvamento = time.time()
-
-        mem_usada = medir_memoria()
-        mem_max = medir_memoria_maxima()
+        
         tempo_geracao = fim_geracao - inicio_geracao
         tempo_salvamento = fim_salvamento - inicio_salvamento
-
+        mem_usada = medir_memoria()
+        mem_max = medir_memoria_maxima()
+        
         desempenho.append((qtd_dados, tempo_geracao, tempo_salvamento, mem_usada, mem_max))
-
-        print(f"✅ {qtd_dados} dados gerados em {tempo_geracao:.2f}s, salvos em {tempo_salvamento:.2f}s, Memória: {mem_usada:.2f} MB, Máxima: {mem_max:.2f} MB")
-
+        print(f"✅ {qtd_dados} dados | Geração: {tempo_geracao:.2f}s | Salvamento: {tempo_salvamento:.2f}s | Memória: {mem_usada:.2f} MB | Máx: {mem_max:.2f} MB")
+    
     gerar_graficos(desempenho)
 
 if __name__ == "__main__":
