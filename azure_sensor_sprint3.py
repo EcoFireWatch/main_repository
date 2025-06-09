@@ -254,4 +254,4 @@ if __name__ == "__main__":
     begin_simulation(
         mass_generation=True,
         jsons_per_second=100,
-        create_csv=True)
+        send_message_azure=True)

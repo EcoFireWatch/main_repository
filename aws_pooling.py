@@ -4,11 +4,11 @@ import gspread
 import json
 from google.oauth2.service_account import Credentials
 
-AWS_ACCESS_KEY_ID = ''
-AWS_SECRET_ACCESS_KEY = ''
-AWS_SESSION_TOKEN = ''
+AWS_ACCESS_KEY_ID = 'ASIA6AVMTNEKCX646OJI'
+AWS_SECRET_ACCESS_KEY = 'SDZMKG4yGSQ4QwboX9syQO6U69upNZKRpUK2p/5X'
+AWS_SESSION_TOKEN = 'IQoJb3JpZ2luX2VjENX//////////wEaCXVzLXdlc3QtMiJGMEQCIAKfAscsVDy2FIgupLYb3OTrGiOeB8OhcyR7bdDusZSmAiAYwwJfXG0NC46LGstZC6snWiyHwJPM+b8FNMUEWIBxfyrBAgiu//////////8BEAAaDDk2MzUwODM5ODM1NiIM9vmFlgZ5YY05M30fKpUCUJRoqIhgKlNot1Ue/7UqCZNzUuXErOQpl56DGGtaKiAYI/HeBZPOzGyE/uDTsRUmpBuODk8m8JBQ0yaHJytP0NsF7EinObgg1EJ7CHqx+NF8zMJLFm/pauLQgVMQ3bpGx81lLoHCCDuX2wSMBx8aUcYMwV45ey+kOSGIV1S7Cs1kgMq55DlOIOsYrz6SHp1PJOJJVNwBrc2JJT2bGd7ycrNMuxQ4LsOBE4w8m6FqKrrNk73nIeLy7UXoIlxLiP5SBJ3MoLEyHOlqJIMAzUAXsE+Rdr1pkakrZqEC5X6/16+MtkmrTqCSrdvEeic1WZcLZReTnf5laDjVqHug5bqK5sgXaE3vxbRIifmXKcM0qHY7ZeptBDCDmp3CBjqeAVanOMaYbj6bOeMEZzGImr8/qSj4IUTxeGaeneXtJLqk893qAHq4aOy6KAYy0h7NkY0AYVNXcb8mS9d07CEjzquLXY+m3ggAT28ErnNMNFA0GzesnwNuJ/OW1JWAOyE2CcAFAxMc6iT1ohABhPeIDQr0ov44FvOsXJ7stskt8c2STeeyIJ+Qhzw1dqwnmdOtLZHEvV3g7Ai0OtQtnhHp'
 
-BUCKET_NAME = 'ecofirewatch-raw'
+BUCKET_NAME = 'eco-fire-watch'
 PREFIX = ''
 POLL_INTERVAL = 60
 
@@ -38,14 +38,27 @@ def baixar_arquivo_s3(key):
     response = s3.get_object(Bucket=BUCKET_NAME, Key=key)
     return response['Body'].read().decode('utf-8')
 
+def achatar_json(dado):
+    resultado = {}
+    for chave, valor in dado.items():
+        if isinstance(valor, dict):
+            for subchave, subvalor in valor.items():
+                nova_chave = f"{chave}.{subchave}"
+                resultado[nova_chave] = subvalor
+        else:
+            resultado[chave] = valor
+    return resultado
+
 def processar_json_e_enviar_para_sheets(conteudo_arquivo):
     try:
         linhas_json = conteudo_arquivo.strip().split('\n')
-        dados = [json.loads(linha) for linha in linhas_json if linha.strip()]
-
-        if not dados:
+        dados_raw = [json.loads(linha) for linha in linhas_json if linha.strip()]
+        
+        if not dados_raw:
             print("Nenhum dado JSON encontrado.")
             return
+
+        dados = [achatar_json(dado) for dado in dados_raw]
 
         headers = list(dados[0].keys())
         linhas = [[item.get(h, '') for h in headers] for item in dados]
