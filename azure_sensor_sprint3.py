@@ -205,13 +205,12 @@ def begin_simulation(
 
                 batch_data.append(dictionary)
 
-            for dictionary in batch_data:
-                json_str = json.dumps(dictionary, indent=0)
+            json_batch_str = json.dumps(batch_data, indent=0)
 
-                if send_message_azure:
-                    send_iot_hub_message(client, json_str)
+            if send_message_azure:
+                send_iot_hub_message(client, json_batch_str)
 
-                print("Enviando JSON ao Azure\n" + json_str)
+            print("JSON:\n" + json_batch_str)
 
             data.extend(batch_data)
 
