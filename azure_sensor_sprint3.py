@@ -5,6 +5,8 @@ import json
 from datetime import datetime
 import matplotlib.pyplot as plt
 import pandas as pd
+import threading
+import requests
 
 class TemperatureSensor:
     def __init__(self, initial_value, min_value, max_value):
@@ -100,7 +102,7 @@ def round_number_wind_direction(current_value, min_value, max_value):
         return current_value
 
 keys = {
-    "temperatura": "Temperatura",
+    "temperature": "Temperatura",
     "airHumidity": "Umidade do Ar",
     "soilHumidity": "Umidade do Solo",
     "co2": "CO2",
@@ -108,19 +110,6 @@ keys = {
     "windSpeed": "Velocidade do Vento",
     "windDirection": "Direção do Vento"
 }
-
-
-def open_iot_hub_connection():
-    CONNECTION_STRING = "HostName=EcoFireWatch-IotHub.azure-devices.net;DeviceId=sensor_simulation;SharedAccessKey=RKL/20zuz4b+6/kiRWS8LDU9VNmFAbapYyBYltqtNTQ="
-    client = IoTHubDeviceClient.create_from_connection_string(CONNECTION_STRING)
-    client.connect()
-
-    return client
-
-def send_iot_hub_message(client, message):
-    client.send_message(Message(message))
-
-import threading
 
 def generate_graphs(data, interval, stop_event):
     plt.ion()
@@ -149,9 +138,9 @@ def generate_graphs(data, interval, stop_event):
                 ax.set_xlabel("Data e Hora")
 
                 unidade = {
-                    "temperatura": " (°C)",
+                    "temperature": " (°C)",
                     "airHumidity": " (%)",
-                    "airSoil": " (%)",
+                    "soilHumidity": " (%)",
                     "co2": " (ppm)",
                     "airQuality": " (ppm)",
                     "windSpeed": " (m/s)",
@@ -165,12 +154,24 @@ def generate_graphs(data, interval, stop_event):
 
         plt.pause(interval)
 
+sensors = [
+    TemperatureSensor(initial_value=25.0, min_value=-200, max_value=600),
+    AirHumiditySensor(initial_value=60.0, min_value=0, max_value=100),
+    SoilHumiditySensor(initial_value=40.0, min_value=0, max_value=100),
+    Co2Sensor(initial_value=4.0, min_value=0, max_value=100),
+    AirQualitySensor(initial_value=8.0, min_value=0, max_value=100),
+    WindSpeedSensor(initial_value=5.0, min_value=0, max_value=50),
+    WindDirectionSensor(initial_value=360.0, min_value=0, max_value=360)
+]
+
+api_gateway_url = ""
+
 def begin_simulation(
+        send_to_api_gateway = False,
         interval=10,
         desc_mean=1,
         asc_mean=1,
         variation_level=0.3,
-        send_message_azure=False,
         create_csv=False,
         display_graphs=False,
         mass_generation=False,
@@ -178,9 +179,6 @@ def begin_simulation(
         csv_separation=";"
         ):
     try:
-        if send_message_azure:
-            client = open_iot_hub_connection()
-
         data = []
 
         stop_event = threading.Event()
@@ -207,12 +205,12 @@ def begin_simulation(
 
             json_batch_str = json.dumps(batch_data, indent=0)
 
-            if send_message_azure:
-                send_iot_hub_message(client, json_batch_str)
-
             print("JSON:\n" + json_batch_str)
 
             data.extend(batch_data)
+
+            if (send_to_api_gateway and mass_generation == False):
+                response = requests.post(url=api_gateway_url, data=batch_data[0])
 
             if create_csv:
                 df = pd.DataFrame(data)
@@ -233,18 +231,6 @@ def begin_simulation(
     finally:
         stop_event.set()
         graphs_thread.join()
-        if send_message_azure:
-            client.disconnect()
-
-sensors = [
-    TemperatureSensor(initial_value=25.0, min_value=-200, max_value=600),
-    AirHumiditySensor(initial_value=60.0, min_value=0, max_value=100),
-    SoilHumiditySensor(initial_value=40.0, min_value=0, max_value=100),
-    Co2Sensor(initial_value=4.0, min_value=0, max_value=100),
-    AirQualitySensor(initial_value=8.0, min_value=0, max_value=100),
-    WindSpeedSensor(initial_value=5.0, min_value=0, max_value=50),
-    WindDirectionSensor(initial_value=360.0, min_value=0, max_value=360)
-]
 
 if __name__ == "__main__":
     # begin_simulation(
@@ -252,6 +238,4 @@ if __name__ == "__main__":
     #     create_csv=True)
     
     begin_simulation(
-        mass_generation=True,
-        jsons_per_second=100,
-        send_message_azure=True)
+        interval=3)
