@@ -100,7 +100,7 @@ print(f"Pixel vermelho (lon, lat): ({pixel_lon:.6f}, {pixel_lat:.6f})")
 print(f"Distância geográfica: {distance_km:.3f} km")
 
 # ==================== ENVIA PARA DYNAMODB ====================
-dynamodb = boto3.resource('dynamodb', region_name="us-east-1")
+dynamodb = boto3.Session(profile_name="default").resource('dynamodb', region_name="us-east-1")
 table = dynamodb.Table("efw-unstructured-data")
 
 item_id = str(uuid.uuid4())

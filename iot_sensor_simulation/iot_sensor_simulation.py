@@ -1,220 +1,159 @@
 import numpy as np
-from azure.iot.device import IoTHubDeviceClient, Message
 import time
 import json
 from datetime import datetime
-import matplotlib.pyplot as plt
+import boto3
+from botocore.exceptions import NoCredentialsError, ClientError
 import pandas as pd
-import threading
 import requests
 
-class TemperatureSensor:
-    def __init__(self, initial_value, min_value, max_value):
-        self.current_value = initial_value
-        self.min_value = min_value
-        self.max_value = max_value
-    
-    def simulate(self, mean, variation_level):
-        self.current_value = round(self.current_value + np.random.normal(mean, variation_level), 2)
-        self.current_value = round_number(self.current_value, self.min_value, self.max_value)
-        return self.current_value
-
-class AirHumiditySensor:
-    def __init__(self, initial_value, min_value, max_value):
-        self.current_value = initial_value
-        self.min_value = min_value
-        self.max_value = max_value
-    
-    def simulate(self, mean, variation_level):
-        self.current_value = round(self.current_value + np.random.normal(mean, variation_level), 2)
-        self.current_value = round_number(self.current_value, self.min_value, self.max_value)
-        return self.current_value
-    
-class SoilHumiditySensor:
-    def __init__(self, initial_value, min_value, max_value):
-        self.current_value = initial_value
-        self.min_value = min_value
-        self.max_value = max_value
-    
-    def simulate(self, mean, variation_level):
-        self.current_value = round(self.current_value + np.random.normal(mean, variation_level), 2)
-        self.current_value = round_number(self.current_value, self.min_value, self.max_value)
-        return self.current_value
-    
-class Co2Sensor:
-    def __init__(self, initial_value, min_value, max_value):
-        self.current_value = initial_value
-        self.min_value = min_value
-        self.max_value = max_value
-    
-    def simulate(self, mean, variation_level):
-        self.current_value = round(self.current_value + np.random.normal(mean, variation_level), 2)
-        self.current_value = round_number(self.current_value, self.min_value, self.max_value)
-        return self.current_value
-    
-class AirQualitySensor:
-    def __init__(self, initial_value, min_value, max_value):
-        self.current_value = initial_value
-        self.min_value = min_value
-        self.max_value = max_value
-    
-    def simulate(self, mean, variation_level):
-        self.current_value = round(self.current_value + np.random.normal(mean, variation_level), 2)
-        self.current_value = round_number(self.current_value, self.min_value, self.max_value)
-        return self.current_value
-
-class WindSpeedSensor:
-    def __init__(self, initial_value, min_value, max_value):
-        self.current_value = initial_value
-        self.min_value = min_value
-        self.max_value = max_value
-    
-    def simulate(self, mean, variation_level):
-        self.current_value = round(self.current_value + np.random.normal(0, variation_level), 2)
-        self.current_value = round_number(self.current_value, self.min_value, self.max_value)
-        return self.current_value
-    
-class WindDirectionSensor:
+# ---------------------- Sensores ----------------------
+class BaseSensor:
     def __init__(self, initial_value, min_value, max_value):
         self.current_value = initial_value
         self.min_value = min_value
         self.max_value = max_value
 
     def simulate(self, mean, variation_level):
-        self.current_value = self.current_value + np.random.normal(mean, variation_level)
-        self.current_value = round(round_number_wind_direction(self.current_value, self.min_value, self.max_value), 2)
-        return self.current_value
+        self.current_value = round(self.current_value + np.random.normal(mean, variation_level), 2)
+        return self._round_value(self.current_value)
 
-def round_number(current_value, min_value, max_value):
-    if (current_value < min_value):
-        return min_value
-    elif (current_value > max_value):
-        return max_value
-    else:
-        return current_value
-    
-def round_number_wind_direction(current_value, min_value, max_value):
-    if (current_value < min_value):
-        return 360 + current_value
-    elif (current_value > max_value):
-        return 0 + (current_value % 360)
-    else:
+    def _round_value(self, current_value):
+        if current_value < self.min_value:
+            return self.min_value
+        elif current_value > self.max_value:
+            return self.max_value
         return current_value
 
-keys = {
-    "temperature": "Temperatura",
-    "airHumidity": "Umidade do Ar",
-    "soilHumidity": "Umidade do Solo",
-    "co2": "CO2",
-    "airQuality": "Qualidade do Ar",
-    "windSpeed": "Velocidade do Vento",
-    "windDirection": "Direção do Vento"
-}
+class TemperatureSensor(BaseSensor): pass
+class AirHumiditySensor(BaseSensor): pass
+class SoilHumiditySensor(BaseSensor): pass
+class Co2Sensor(BaseSensor): pass
+class AirQualitySensor(BaseSensor): pass
+class WindSpeedSensor(BaseSensor): pass
 
-def generate_graphs(data, interval, stop_event):
-    plt.ion()
-    figures = {}
-    axis = {}
+class WindDirectionSensor(BaseSensor):
+    def _round_value(self, current_value):
+        if current_value < self.min_value:
+            return 360 + current_value
+        elif current_value > self.max_value:
+            return current_value % 360
+        return current_value
 
-    for key in keys:
-        fig = plt.figure(figsize=(8, 4))
-        fig.canvas.manager.set_window_title(keys[key])
-        ax = fig.add_subplot(1, 1, 1)
-        figures[key] = fig
-        axis[key] = ax
-
-    while not stop_event.is_set():
-        if not data:
-            continue
-
-        df = pd.DataFrame(data)
-
-        for key in keys:
-            if len(df) > 1:
-                ax = axis[key]
-                ax.cla()
-                ax.plot(df['insertDate'], df[key], marker='o')
-                ax.set_title(keys[key])
-                ax.set_xlabel("Data e Hora")
-
-                unidade = {
-                    "temperature": " (°C)",
-                    "airHumidity": " (%)",
-                    "soilHumidity": " (%)",
-                    "co2": " (ppm)",
-                    "airQuality": " (ppm)",
-                    "windSpeed": " (m/s)",
-                    "windDirection": " (°)"
-                }.get(key, "")
-
-                ax.set_ylabel(keys[key] + unidade)
-                ax.tick_params(axis='x', rotation=45)
-                ax.grid(True)
-                figures[key].tight_layout()
-
-        plt.pause(interval)
-
-sensors = [
-    TemperatureSensor(initial_value=25.0, min_value=-200, max_value=600),
-    AirHumiditySensor(initial_value=60.0, min_value=0, max_value=100),
-    SoilHumiditySensor(initial_value=40.0, min_value=0, max_value=100),
-    Co2Sensor(initial_value=4.0, min_value=0, max_value=100),
-    AirQualitySensor(initial_value=8.0, min_value=0, max_value=100),
-    WindSpeedSensor(initial_value=5.0, min_value=0, max_value=50),
-    WindDirectionSensor(initial_value=360.0, min_value=0, max_value=360)
+# ---------------------- Chaves ----------------------
+keys = [
+    "temperature",
+    "airHumidity",
+    "soilHumidity",
+    "co2",
+    "airQuality",
+    "windSpeed",
+    "windDirection"
 ]
 
-api_gateway_url = ""
-
-def begin_simulation(
-        send_to_api_gateway = False,
-        interval=10,
-        desc_mean=1,
-        asc_mean=1,
-        variation_level=0.3,
-        create_csv=False,
-        display_graphs=False,
-        mass_generation=False,
-        jsons_per_second=10,
-        csv_separation=";"
-        ):
+# ---------------------- Função para enviar JSON ao S3 ----------------------
+def upload_json_to_s3(json_data, bucket_name, s3_key):
+    s3 = boto3.Session(profile_name="default").client('s3')
     try:
-        data = []
-
-        stop_event = threading.Event()
-        graphs_thread = threading.Thread(
-            target=generate_graphs,
-            args=(data, interval, stop_event),
-            daemon=True
+        s3.put_object(
+            Bucket=bucket_name,
+            Key=s3_key,
+            Body=json.dumps(json_data, indent=0)
         )
-        if display_graphs:
-            graphs_thread.start()
+        print(f"JSON enviado para S3: s3://{bucket_name}/{s3_key}")
+    except NoCredentialsError:
+        print("Credenciais AWS não encontradas.")
+    except ClientError as e:
+        print(f"Erro ao enviar JSON: {e}")
+
+# ---------------------- Simulação ----------------------
+def begin_simulation(
+    farm_id=1,
+    n_temperature_sensors=1,
+    n_air_humidity_sensors=1,
+    n_soil_humidity_sensors=1,
+    n_co2_sensors=1,
+    n_air_quality_sensors=1,
+    n_wind_speed_sensors=1,
+    n_wind_direction_sensors=1,
+    send_to_api_gateway=False,
+    api_gateway_url="",
+    interval=10,
+    desc_mean=1,
+    asc_mean=1,
+    variation_level=0.3,
+    create_csv=False,
+    mass_generation=False,
+    jsons_per_second=10,
+    csv_separation=";",
+    upload_to_s3=False,
+    s3_bucket_name="",
+    s3_key_prefix="iot_sensor/"
+):
+    try:
+        # Criação dinâmica de sensores com IDs únicos
+        sensors_config = {
+            "temperature": (TemperatureSensor, n_temperature_sensors, 25.0, -200, 600),
+            "airHumidity": (AirHumiditySensor, n_air_humidity_sensors, 60.0, 0, 100),
+            "soilHumidity": (SoilHumiditySensor, n_soil_humidity_sensors, 40.0, 0, 100),
+            "co2": (Co2Sensor, n_co2_sensors, 4.0, 0, 100),
+            "airQuality": (AirQualitySensor, n_air_quality_sensors, 8.0, 0, 100),
+            "windSpeed": (WindSpeedSensor, n_wind_speed_sensors, 5.0, 0, 50),
+            "windDirection": (WindDirectionSensor, n_wind_direction_sensors, 360.0, 0, 360),
+        }
+
+        sensors = {}
+        sensor_id_counter = 1
+
+        for key, (cls, n, init, minv, maxv) in sensors_config.items():
+            sensors[key] = [
+                {"sensor": cls(init, minv, maxv), "sensorId": sensor_id_counter + i}
+                for i in range(n)
+            ]
+            sensor_id_counter += n
+
+        data = []
 
         while True:
             start_time = time.time()
-
             batch_data = []
 
             for _ in range(jsons_per_second if mass_generation else 1):
-                data_tuple = tuple(sensor.simulate(np.random.choice([-desc_mean, asc_mean]), variation_level) for sensor in sensors)
+                result = {"farmId": farm_id, "insertDate": datetime.now().isoformat()}
 
-                dictionary = dict(zip(keys, data_tuple))
-                dictionary["insertDate"] = datetime.now().isoformat()
+                for key in sensors.keys():
+                    sensor_list = []
+                    for s in sensors[key]:
+                        sensor_obj = s["sensor"]
+                        sensor_id = s["sensorId"]
+                        value = sensor_obj.simulate(np.random.choice([-desc_mean, asc_mean]), variation_level)
+                        sensor_list.append({"value": value, "sensorId": sensor_id})
+                    result[key] = sensor_list
 
-                batch_data.append(dictionary)
+                batch_data.append(result)
 
-            json_batch_str = json.dumps(batch_data, indent=0)
-
-            print("JSON:\n" + json_batch_str)
+            json_batch = batch_data[0]
+            print("JSON:\n" + json.dumps(json_batch, indent=4))
 
             data.extend(batch_data)
 
-            if (send_to_api_gateway and mass_generation == False):
-                response = requests.post(url=api_gateway_url, data=batch_data[0])
+            # Enviar para API Gateway
+            if send_to_api_gateway and not mass_generation:
+                requests.post(url=api_gateway_url, json=json_batch)
 
+            # Salvar CSV opcional
             if create_csv:
-                df = pd.DataFrame(data)
-                df.to_csv("sensor_data.csv", index=False, encoding="utf-8")
+                df = pd.DataFrame([{
+                    "insertDate": d["insertDate"],
+                    **{k: d[k][0]["value"] for k in keys}
+                } for d in data])
+                df.to_csv("sensor_data.csv", index=False, encoding="utf-8", sep=csv_separation)
+
+            # Enviar JSON para S3
+            if upload_to_s3:
+                timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+                s3_key = f"{s3_key_prefix}farm_{farm_id}_{timestamp}.json"
+                upload_json_to_s3(json_batch, s3_bucket_name, s3_key)
 
             if mass_generation:
                 elapsed = time.time() - start_time
@@ -225,17 +164,26 @@ def begin_simulation(
     except KeyboardInterrupt:
         print("\nSimulação interrompida pelo usuário.")
         if create_csv:
-            df = pd.DataFrame(data)
+            df = pd.DataFrame([{
+                "insertDate": d["insertDate"],
+                **{k: d[k][0]["value"] for k in keys}
+            } for d in data])
             df.to_csv("sensor_data.csv", index=False, encoding="utf-8", sep=csv_separation)
             print("Arquivo CSV salvo como 'sensor_data.csv'.")
-    finally:
-        stop_event.set()
-        graphs_thread.join()
 
+# ---------------------- Execução ----------------------
 if __name__ == "__main__":
-    # begin_simulation(
-    #     interval=3,
-    #     create_csv=True)
-    
     begin_simulation(
-        interval=3)
+        farm_id=1,
+        n_temperature_sensors=4,
+        n_air_humidity_sensors=4,
+        n_soil_humidity_sensors=4,
+        n_co2_sensors=4,
+        n_air_quality_sensors=4,
+        n_wind_speed_sensors=4,
+        n_wind_direction_sensors=4,
+        interval=3,
+        create_csv=False,
+        upload_to_s3=True,
+        s3_bucket_name="eco-fire-watch-test-trusted"
+    )
