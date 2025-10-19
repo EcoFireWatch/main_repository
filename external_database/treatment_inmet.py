@@ -2,9 +2,21 @@ import pandas as pd
 from unidecode import unidecode
 import numpy as np
 import re
+import base64
+import io
 
+def puxar_arquivo_e_trasformar_base64(caminho_arquivo):
+    with open(caminho_arquivo, "rb") as file:
+        encoded_string = base64.b64encode(file.read()).decode('utf-8')
+    return encoded_string
+
+csv_base64 = puxar_arquivo_e_trasformar_base64("INMET_SE_SP_A771_SAO PAULO - INTERLAGOS_01-01-2025_A_30-09-2025.CSV")
+
+csv_bytes = base64.b64decode(csv_base64)
+
+csv_io = io.BytesIO(csv_bytes)
 df = pd.read_csv(
-    'INMET_SE_SP_A771_SAO PAULO - INTERLAGOS_01-01-2025_A_31-07-2025.CSV',
+    csv_io,
     skiprows=8,
     sep=';',
     encoding='latin-1'
@@ -60,6 +72,5 @@ for col in colunas_categoricas:
     if df[col].dtype == object:
         df[col] = df[col].astype(str).apply(lambda x: unidecode(x).upper())
 
-df.to_excel('INMET_SE_SP_A771_SAO_PAULO_INTERLAGOS_2025_TRUSTED.xlsx', index=False)
-df.to_csv('INMET_SE_SP_A771_SAO_PAULO_INTERLAGOS_2025_TRUSTED.csv', index=False)
-print("Arquivo salvo como INMET_SE_SP_A771_SAO_PAULO_INTERLAGOS_2025_TRUSTED.xlsx")
+df.to_csv('INMET_SE_SP_A771_SAO_PAULO_INTERLAGOS_2025_TRUSTED.csv', index=False, sep=';')
+print("Arquivo salvo como INMET_SE_SP_A771_SAO_PAULO_INTERLAGOS_2025_TRUSTED.csv")
