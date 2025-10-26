@@ -256,11 +256,13 @@ if __name__ == "__main__":
         n_wind_direction_sensors=4,
         interval=3,
         mass_generation=True,
-        mass_generation_interval_seconds=3,
-        jsons_per_second=10,
+        mass_generation_interval_seconds=10,
+        jsons_per_second=200,
         send_to_postgres=True,
         postgres_connection_params=postgres_config,
         upload_to_s3=True,
         s3_bucket_name="eco-fire-watch-test-trusted",
-        batch_size=20
+        batch_size=200
     )
+
+# Teste CI/CD 1
