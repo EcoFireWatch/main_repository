@@ -28,7 +28,7 @@ jobs:
 
       - name: Check syntax
         run: |
-          python -m py_compile iot_sensor_simulation.py
+          python -m py_compile iot_sensor_simulation/iot_sensor_simulation.py
 
       - name: Setup SSH
         run: |
@@ -39,4 +39,4 @@ jobs:
 
       - name: Copy file to EC2
         run: |
-          scp -i ~/.ssh/id_rsa iot_sensor_simulation.py ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ubuntu/deploy/iot_sensor_simulation.py
+          scp -i ~/.ssh/id_rsa iot_sensor_simulation/iot_sensor_simulation.py ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ubuntu/iot_sensor_simulation.py
