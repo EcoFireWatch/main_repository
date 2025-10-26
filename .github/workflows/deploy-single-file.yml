@@ -3,7 +3,7 @@ name: Deploy iot_sensor_simulation.py to EC2
 on:
   push:
     paths:
-      - 'iot_sensor_simulation.py'
+      - 'iot_sensor_simulation/iot_sensor_simulation.py'
     branches:
       - main
 
